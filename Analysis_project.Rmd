@@ -1,0 +1,209 @@
+---
+title: "Tabletop Games Analysis"
+author: "Harrison Crichton"
+date: "2023-08-28"
+output: pdf_document
+---
+
+In this study, I am utilizing a comprehensive board game data set curated by Jen Wadkins. The data set, spanning a wide range of years from -3500 B.C. to 2021, was last updated two years ago. To ensure the integrity of my analysis, I am focusing specifically on board games introduced after the year of 1958. This chosen threshold guarantees a more consistent and comprehensive data set, as it aligns with the period when increasingly structured information on board games became more readily available.
+
+My hypothesis is that there exists a discernible 20% upswing in the average ratings assigned to strategy board games subsequent to the year 2000. This hypothesis rests upon the conjecture that the upbringing of computer technology has ushered in a shift in recreational preferences. This shift sees a greater inclination toward indoor activities, including board gaming. Consequently, individuals are more prone to dedicate their leisure time to playing board games, leading to a potential inflation in user engagement and feedback.
+
+In effect, this increase in player engagement is presumed to have a direct correlation with the increase in the quantity and quality of player ratings. The surge in available players, brought about by the convenience and accessibility of digital mediums, augments the probability of garnering a wider range of player opinions. This expansion in feedback from a more diverse player base subsequently contributes to a higher average rating for strategy board games released post-2000, affirming the premise of the hypothesis.
+
+### Step 1 Imports
+
+```{r}
+library(tidyverse)
+library("janitor")
+library("cowplot")
+library(knitr)
+```
+
+```{r}
+df <- read.csv("~/Capstone Project I/games.csv")
+head(df)
+
+```
+
+### Step 2: Tidying & Cleaning the Data
+
+Using the janitor clean names function to fix the column names for better readability.
+
+```{r}
+df <- df %>% clean_names()
+df
+```
+
+In the initial phase of our analysis of the board game data set, it's essential to streamline our data to focus on the most relevant attributes. As such, I've identified several columns that we can exclude from our analysis due to various reasons:
+
+bgg_id: The data set comes with its index. Using an additional index would be redundant, especially given that I won't be referencing the BoardGameGeeks website.
+
+description: There's no categorical or numerical data to use for analysis.
+
+good_players: While exploring the data in excel, I found there to be an incredible amount of missing values.
+
+num_want & num_wish: My analysis is strictly on ratings given by users who have the game. I will not need users who do not contribute to the data.
+
+num_weight_votes: I honestly do not know what this stands for. In the documentation given alongside the data, for this column it has; "? Unknown".
+
+num_comments: The analysis won't be examining community participation to a degree at all.
+
+num_alternates, num_expansions, num_implementations, & is_reimplementation: In the analysis, I will be looking at each game as a whole, and I currently do not have segregated information on the base game and its corresponding expansions.
+
+image_path: I wont be needing to look at the image of any of the games.
+
+```{r}
+cl_df<- df[-c(1,3,14,16,17,18,24,25,26,27,28,31)]
+cl_df
+```
+
+### Step 3: Exploring the Data
+
+Board Games can encompass multiple categories. The curator of the data set was awesome enough to instead of having a single column with a list of each category the game has, to setting a column to each category and having the value be binary. This allows us to filter through the data more efficiently. Let's look at a category that's not part of my hypothesis, the card game category.
+
+```{r}
+cgs_df <- filter(cl_df,cat_cgs== 1)
+cgs_df
+```
+
+Next, I'll shift our focus to the top ten games that have the highest number of user ratings. This selection will serve as a benchmark for our analysis. By matching up these top rated card games with their actual user ratings, I can collect insight into the alignment between popularity and user sentiment.
+
+```{r fig.height = 6, fig.width=10}
+cgs_num_top <- head(arrange(cgs_df,desc(num_user_ratings)),10)
+cgs_num_fig <- cgs_num_top %>% ggplot() +
+  geom_col(mapping=aes(desc(num_user_ratings),name),fill="#074a07") + 
+  geom_text(aes(desc(num_user_ratings),name), label=cgs_num_top$num_user_ratings,hjust=-.2
+            ,color="#f8b5f8") +
+  ggtitle("Top 10 Most User Rated Card Games & Their") +
+  labs(x="Count of User Ratings Per Game",y="Card Game Names") +
+  scale_x_continuous(
+   breaks = c(-30000, -20000, -10000, 0.),
+   labels = c(30000, 20000, 10000, 0)
+ ) + theme_dark() +
+  theme( axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid"))
+cgs_10_rat <- cgs_num_top %>% ggplot() +
+  geom_col(aes(avg_rating,name), fill="#074a07") + 
+  geom_text(aes(avg_rating,name), label=round(cgs_num_top$avg_rating,2), 
+  hjust=--1.3,color="#f8b5f8") + 
+  ggtitle("   Averagte Rating") +
+  labs(x="Average Rating Per Game") +
+  scale_x_continuous(limits=c(0, 10)) +
+  theme_dark() +
+  theme(axis.text.y=element_blank(), axis.title.y = element_blank())
+
+
+plot_grid(cgs_num_fig, cgs_10_rat, labels = "auto", rel_widths = c(3, 1))
+```
+
+Upon analyzing the average ratings of the top ten most user rated card games, I observe little difference among them. To make use of whether a broader pattern exists, I want to see if card games as a category displays a positive linear correlation between user rating quantities and average ratings. In this context, the number of ratings serves as the independent variable, suggesting that a higher user engagement might contribute to higher average ratings. As a counterpoint, the null hypothesis asserts the lack of a correlation. To delve into this relationship, I'll determine the correlation coefficient, providing a small insight into the relationship.
+
+Afterwards, I will graph out the two variables and pull their summary statistics. By using the linear regression stats returned, I can then overlay the model line over the graph.
+
+```{r}
+cor(cgs_df$num_user_ratings,cgs_df$avg_rating)
+```
+
+```{r}
+lm(cgs_df$avg_rating~cgs_df$num_user_ratings)
+cgs_df %>% ggplot() +
+  geom_point(aes(num_user_ratings,avg_rating),colour="#41e4e4") +
+  geom_abline(aes(intercept=6.288e+00,slope=8.237e-05),colour="#be1b1b",linetype=2) +
+  theme_dark() +
+  theme( axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid")) +
+  ggtitle("The Number of User Ratings by Average Rating for Each Card Game") +
+  labs(y="Average Rating Per Game",x="Count of User Ratings Per Game")
+
+summary(lm(cgs_df$avg_rating~cgs_df$num_user_ratings))
+  
+```
+
+Upon analyzing the graph and reviewing the summary statistics, it becomes evident that the probability value of 4.87e-09 establishes a substantial level of significance in the correlation between the number of user ratings and the average rating. Based on this evidence, the null hypothesis is decisively rejected in favor of the alternative hypothesis. Looking ahead, the data suggests that increasing the number of user ratings could indeed be a viable strategy for enhancing the average rating of a card game. However, an intriguing question arises: does this correlation extend universally to all board games?
+
+```{r}
+lm(cl_df$avg_rating~cl_df$num_user_ratings)
+cl_df %>% ggplot() +
+  geom_point(aes(num_user_ratings,avg_rating),colour="#023f30",alpha=.1) +
+  geom_abline(aes(intercept=6.388e+00,slope=4.305e-05),colour="#fdc0cf",linetype=1) +
+  theme_dark() +
+  theme( axis.line = element_line(colour = "black", 
+                      size = 1, linetype = "solid")) +
+  ggtitle("The Number of User Ratings by Average Rating for Each Board Game")+
+  labs(y="Average Rating Per Game",x="Count of User Ratings Per Game")
+
+summary(lm(cl_df$avg_rating~cl_df$num_user_ratings))
+```
+
+With the full summary stats for all board games, our probability value drops to \<2e-16. This leads us to reject the null hypothesis that there's no connection between user ratings and average ratings. Instead, I accept the alternative, that there's a strong, universal link. More user ratings tend to mean higher average ratings for all board games.
+
+Next, let's check if kickstarted games make up at least 10% of all board games. Using a 95% confidence level, I'll estimate the range where the actual percentage of kickstarted games might lie. The null hypothesis for this will be kickstarted games are fewer than 10% of all board games.
+
+```{r}
+x <-  nrow(filter(cl_df,kickstarted==1))
+# This sets the x to the number of rows of a dataframe that only contains kickstarted games
+n <-  nrow(cl_df)
+# This sets n to the sample size, the count of rows for the entire dataframe
+confidence_level <-  .95
+# As previously mentioned, this is 95% as a decimal
+# Here, we calculate point estimate, alpha, critical z value, standard error, and finally margin of error
+point_estimate <-  x/n
+alpha <- (1-confidence_level)
+critical_z <- qnorm(1-alpha/2)
+standard_error <- sqrt(point_estimate*(1-point_estimate)/n)
+margin_of_error <- critical_z * standard_error
+# Using the margin of error, I can now get the confidence interval for where the percentage of 
+lower_bound <- point_estimate - margin_of_error
+upper_bound <- point_estimate + margin_of_error
+
+sprintf("%f - %f", lower_bound, upper_bound)
+sprintf("%f, %f", point_estimate, margin_of_error)
+
+```
+
+With 95% confidence, I can assert that the estimated proportion of kickstarted board games falls within the range of 14.86% to 15.81%. Alternatively, I can express this as a percentage of 15.33% with a margin of error of 0.48%. Notably, the lower bound of 14.86% aligns with my hypothesis, affirming that kickstarted board games respresent a minimum of 10%. Therefore, I reject the null hypothesis and validate my own.
+
+### Step 4: Analyze
+
+Now, let's take another look at my initial hypothesis. I wanted to see if, for all strategy board games starting from 1958, there's been a solid 20% boost in ratings after 2000. To explore this, I'm going to check out an Excel chart that breaks down the average ratings per year, specifically for strategy games.
+
+```{r}
+include_graphics("~/Capstone Project I/excel_pivot_charts/Average Rating of Strategy Board Games Per Year Post 1958.png")
+```
+
+In this context, I can observe a gradual increase in the average rating as time passes. However, the crucial aspect to explore is whether this rise is at least 20% from 2000 onwards. To address this, my approach involves conducting a two-sample t-test. Before proceeding, I'll need to clean the dataframe to concentrate exclusively on strategy games within the time frame of 1958 to 2021.
+
+```{r}
+# First, grab only strategy games
+str_df <- filter(cl_df, cat_strategy == 1)
+# Next, grab only games either on or after 1958
+str_df <- filter(str_df, year_published >= 1958)
+# str_df
+# Then, split the two ranges
+str_1958_df <- filter(str_df, year_published < 2000)
+str_2000_df <- filter(str_df, year_published >= 2000)
+# Finally, lets run the t test
+tuhtest <- t.test(str_2000_df$avg_rating,str_1958_df$avg_rating, alternative = "greater")
+tuhtest
+```
+
+Given a p-value of 2.2e-16, it's evident that a significant distinction exists in the means between the two time periods. To ascertain if this difference reaches at least 20%, we can use simple division. By dividing the mean of the 2000s by the mean of the 19th century, and then subtracting one, we can accurately determine the factual disparity in means.
+
+```{r}
+7.008994/6.557152 -1
+```
+
+In this context, I can observe that the actual difference is 6.89%. Armed with this information, I will reject my initial hypothesis and instead accept the null hypothesis. The null hypothesis suggests that there isn't a 20% increase in ratings since the year 2000.
+
+### Step 5: Conclusion
+
+In reviewing the board game data, I've looked into hypothesis testing and statistical analysis. To begin, I carefully cleaned the data set by removing unnecessary columns and focusing on relevant attributes. Through methodical analyses, I've uncovered insightful patterns within the realm of board games.
+
+One intriguing finding is the strong link between user engagement and average ratings, especially among card games. The remarkably low probability value of 4.87e-09 led me to confidently reject the null hypothesis, indicating a clear connection between higher user ratings and increased user involvement. This relationship holds true across all board games, providing actionable insights for board game designers aiming to boost ratings through user participation.
+
+Turning to kickstarted board games, I employed a statistical estimation with a 95% confidence level. My calculation suggests that the proportion of kickstarted games falls between 14.86% and 15.81%, with a calculated percentage of 15.33%. This discovery offers a valuable benchmark for understanding the role of crowdfunding in the board game landscape, shedding light on its significance.
+
+Examining strategy board games from 1958 onward, I found a steady rise in average ratings over time, indicating a positive trend in player satisfaction. However, when focusing specifically on the years after 2000, my hypothesis of a 20% rating increase was contradicted by a calculated difference of 6.89%. As a result, I accepted the null hypothesis.
+
+In summary, this analysis has unveiled insightful trends within board game data. From the correlation between user engagement and ratings to the impact of crowdfunding, each discovery highlights the dynamic factors shaping the world of board gaming.
