@@ -2,7 +2,9 @@
 title: "Tabletop Games Analysis"
 author: "Harrison Crichton"
 date: "2023-08-28"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 In this study, I am utilizing a comprehensive board game data set curated by Jen Wadkins. The data set, spanning a wide range of years from -3500 B.C. to 2021, was last updated two years ago. To ensure the integrity of my analysis, I am focusing specifically on board games introduced after the year of 1958. This chosen threshold guarantees a more consistent and comprehensive data set, as it aligns with the period when increasingly structured information on board games became more readily available.
